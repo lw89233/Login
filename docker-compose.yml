@@ -1,0 +1,12 @@
+version: '3.8'
+
+services:
+  login-service:
+    build: .
+    image: login-service:latest
+    container_name: login-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "${LOGIN_MICROSERVICE_PORT}:${LOGIN_MICROSERVICE_PORT}"
