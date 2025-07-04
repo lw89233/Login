@@ -45,7 +45,7 @@ Ta metoda wykorzystuje gotowy obraz z repozytorium Docker Hub.
 
 1.  **Pobierz obraz**: Na serwerze docelowym wykonaj polecenie, aby pobrać najnowszą wersję obrazu z repozytorium na Docker Hub.
     ```bash
-    docker pull lw89233/login-service:latest
+    docker pull lw89233/login:latest
     ```
 
 2.  **Przygotuj pliki konfiguracyjne**: W jednym katalogu na serwerze umieść:
@@ -53,8 +53,8 @@ Ta metoda wykorzystuje gotowy obraz z repozytorium Docker Hub.
     * Plik `docker-compose.prod.yml` o następującej treści:
         ```yaml
         services:
-          login-service:
-            image: lw89233/login-service:latest
+          login:
+            image: lw89233/login:latest
             container_name: login-service
             restart: unless-stopped
             env_file:
