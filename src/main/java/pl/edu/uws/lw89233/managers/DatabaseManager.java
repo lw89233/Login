@@ -1,61 +1,45 @@
 package pl.edu.uws.lw89233.managers;
 
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
+
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public final class DatabaseManager {
 
-    private Connection dbConnection;
-    private final String DB_HOST;
-    private final String DB_PORT;
-    private final String DB_NAME;
-    private final String DB_USER;
-    private final String DB_PASSWORD;
+    private static HikariDataSource dataSource;
 
-    public DatabaseManager(String DB_HOST, String DB_PORT, String DB_NAME, String DB_USER, String DB_PASSWORD) {
-        this.DB_HOST = DB_HOST;
-        this.DB_PORT = DB_PORT;
-        this.DB_NAME = DB_NAME;
-        this.DB_USER = DB_USER;
-        this.DB_PASSWORD = DB_PASSWORD;
+    public DatabaseManager(String host, String port, String dbName, String user, String password) {
+        if (dataSource == null) {
+            HikariConfig config = new HikariConfig();
 
-        connectWithRetries();
-    }
+            config.setJdbcUrl("jdbc:mysql://" + host + ":" + port + "/" + dbName);
+            config.setUsername(user);
+            config.setPassword(password);
 
-    public void connectWithRetries() {
-        String DB_URL = "jdbc:mysql://" + DB_HOST + ":" + DB_PORT + "/" + DB_NAME;
-        int maxRetries = 5;
-        int retryCount = 0;
+            config.setMaximumPoolSize(10);
 
-        while (retryCount < maxRetries) {
-            try {
+            config.setMinimumIdle(5);
 
-                this.dbConnection = DriverManager.getConnection(DB_URL, DB_USER, DB_PASSWORD);
+            config.setConnectionTimeout(30000);
 
-                System.out.println("Pomyślnie połączono z bazą danych: " + DB_NAME);
-                return;
+            config.setIdleTimeout(600000);
 
-            } catch (SQLException e) {
+            config.setMaxLifetime(1800000);
 
-                retryCount++;
-                System.err.println("Błąd przy połączeniu z bazą danych (próba " + retryCount + "/" + maxRetries + "): " + e.getMessage());
-
-                if (retryCount < maxRetries) {
-                    try {
-
-                        Thread.sleep(5000);
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                    }
-                }
-            }
+            dataSource = new HikariDataSource(config);
+            System.out.println("Pula połączeń z bazą danych " + dbName + " została pomyślnie zainicjalizowana.");
         }
-
-        System.err.println("Nie udało się nawiązać połączenia z bazą danych po " + maxRetries + " próbach.");
     }
 
-    public Connection getConnection() {
-        return dbConnection;
+    public Connection getConnection() throws SQLException {
+        return dataSource.getConnection();
+    }
+
+    public void close() {
+        if (dataSource != null) {
+            dataSource.close();
+        }
     }
 }

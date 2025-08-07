@@ -2,15 +2,19 @@ package pl.edu.uws.lw89233;
 
 import pl.edu.uws.lw89233.managers.DatabaseManager;
 import pl.edu.uws.lw89233.managers.MessageManager;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class Login {
 
@@ -20,7 +24,15 @@ public class Login {
     private final String DB_NAME = System.getenv("DB_NAME");
     private final String DB_USER = System.getenv("DB_USER");
     private final String DB_PASSWORD = System.getenv("DB_PASSWORD");
-    private final DatabaseManager dbManager = new DatabaseManager(DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD);
+
+    private final DatabaseManager dbManager;
+
+    private final ExecutorService threadPool = Executors.newFixedThreadPool(20);
+
+    public Login() {
+
+        this.dbManager = new DatabaseManager(DB_HOST, DB_PORT, DB_NAME, DB_USER, DB_PASSWORD);
+    }
 
     public void startService() {
         try (ServerSocket serverSocket = new ServerSocket(PORT)) {
@@ -28,15 +40,19 @@ public class Login {
 
             while (true) {
                 Socket clientSocket = serverSocket.accept();
-                new ClientHandler(clientSocket).start();
+
+                threadPool.execute(new ClientHandler(clientSocket));
             }
         } catch (IOException e) {
             System.err.println("Error starting Login microservice: " + e.getMessage());
+        } finally {
+
+            threadPool.shutdown();
+            dbManager.close();
         }
     }
 
-    private class ClientHandler extends Thread {
-
+    private class ClientHandler implements Runnable {
         private final Socket clientSocket;
 
         public ClientHandler(Socket clientSocket) {
@@ -65,7 +81,9 @@ public class Login {
             String sql = "SELECT COUNT(*) AS count FROM users WHERE login = ? AND password = ?";
             String response = "type:login_response#message_id:%s#".formatted(responseManager.getAttribute("message_id"));
 
-            try (PreparedStatement stmt = dbManager.getConnection().prepareStatement(sql)) {
+            try (Connection connection = dbManager.getConnection();
+                 PreparedStatement stmt = connection.prepareStatement(sql)) {
+
                 stmt.setString(1, login);
                 stmt.setString(2, password);
 
@@ -77,12 +95,12 @@ public class Login {
                     } else {
                         response += "status:400#";
                     }
-                    return response;
                 }
             } catch (SQLException e) {
+                System.err.println("Database error during login: " + e.getMessage());
                 response += "status:400#";
-                return response;
             }
+            return response;
         }
     }
 
